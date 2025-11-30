@@ -1,0 +1,748 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>时间追踪统计仪表盘</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text y='28' font-size='28'>⏱️</text></svg>">
+  <style>
+    :root {
+      --color-primary: #0078d7;
+      --color-primary-dark: #005a9e;
+      --color-success: #107c10;
+      --color-danger: #d13438;
+      --color-warning: #ffb900;
+      --color-bg-light: #f5f5f5;
+      --color-bg-white: #ffffff;
+      --color-text-primary: #333333;
+      --color-text-secondary: #666666;
+      --color-border: #d0d0d0;
+      /* chart palette */
+      --chart-blue: #0078d7;
+      --chart-green: #107c10;
+      --chart-orange: #ffb900;
+      --chart-red: #d13438;
+      --chart-gray: #ececec;
+      --chart-pink: #e087d7;
+      --chart-cyan: #69c8f8;
+    }
+    html, body {
+      margin: 0;
+      padding: 0;
+      font-family: "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", Arial, sans-serif;
+      background: var(--color-bg-light);
+      color: var(--color-text-primary);
+      min-height: 100vh;
+    }
+    body {
+      min-height: 100vh;
+    }
+    .container {
+      max-width: 820px;
+      margin: 0 auto;
+      padding: 20px 10px 40px 10px;
+    }
+    .dashboard-card {
+      background: var(--color-bg-white);
+      border: 1px solid var(--color-border);
+      border-radius: 12px;
+      margin-bottom: 24px;
+      box-shadow: 0 1px 4px 0 rgba(0,0,0,0.05);
+    }
+    .dashboard-card-header {
+      font-size: 1.15rem;
+      font-weight: 500;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      border-bottom: 1px solid var(--color-border);
+      background: var(--color-bg-light);
+      padding: 16px 20px;
+    }
+    .dashboard-card-body {
+      padding: 20px 20px 12px 20px;
+    }
+    .github-config-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+    }
+    .github-config-row label {
+      min-width: 54px;
+      color: var(--color-text-secondary);
+      font-size: 1rem;
+    }
+    .input {
+      padding: 7px 13px;
+      font-size: 1rem;
+      border: 1px solid var(--color-border);
+      border-radius: 5px;
+      outline: none;
+      width: 140px;
+      background: white;
+      color: var(--color-text-primary);
+      transition: border 0.2s;
+    }
+    .input:focus {
+      border: 1.5px solid var(--color-primary);
+    }
+    .action-btn, .refresh-btn {
+      padding: 7px 16px;
+      font-size: 1rem;
+      color: white;
+      background: var(--color-primary);
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      transition: background 0.15s;
+      margin-left: 2px;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .action-btn:active, .refresh-btn:active { background: var(--color-primary-dark); }
+    .action-btn[disabled] {
+      background: #b8cbe8;
+      cursor: not-allowed;
+    }
+    .switch {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      cursor: pointer;
+      font-size: 0.98rem;
+      user-select: none;
+    }
+    .switch input {
+      appearance: none;
+      width: 38px;
+      height: 20px;
+      border-radius: 10px;
+      background: #e3e3e3;
+      position: relative;
+      vertical-align: middle;
+      outline: none;
+      margin: 0 2px 0 0;
+      transition: background 0.17s;
+    }
+    .switch input:checked {
+      background: var(--color-primary);
+    }
+    .switch input:before {
+      content: '';
+      display: block;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: #fff;
+      box-shadow: 0 1.5px 4px #bbb8;
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      transition: left 0.17s;
+    }
+    .switch input:checked:before {
+      left: 20px;
+    }
+    .switch .slider {
+      display: none;
+    }
+    .dashboard-summary-grid {
+      display: flex;
+      justify-content: space-between;
+      gap: 20px;
+      flex-wrap: wrap;
+      margin-bottom: 10px;
+    }
+    .summary-box {
+      flex: 1 1 110px;
+      background: var(--color-bg-light);
+      min-width: 105px;
+      border-radius: 7px;
+      padding: 18px 14px;
+      text-align: center;
+      margin-bottom: 8px;
+      box-shadow: 0 1px 4px 0 rgba(0,0,0,0.04);
+    }
+    .summary-title {
+      font-size: 0.99rem;
+      color: var(--color-text-secondary);
+      margin-bottom: 3px;
+    }
+    .summary-value {
+      font-size: 1.45rem;
+      font-weight: bold;
+      letter-spacing: 1px;
+    }
+    .project-list-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    .project-list-table th, .project-list-table td {
+      padding: 8px 8px;
+      font-size: 1rem;
+      text-align: left;
+    }
+    .project-list-table th {
+      color: var(--color-text-secondary);
+      font-weight: 500;
+      border-bottom: 1.5px solid var(--color-border);
+    }
+    .project-list-table td {
+      border-bottom: 1px solid #e5e5e5;
+    }
+    .progress-bar {
+      width: 100%;
+      height: 12px;
+      background: #ececec;
+      border-radius: 6px;
+      overflow: hidden;
+      position: relative;
+      margin-top: 4px;
+    }
+    .progress-fill {
+      height: 100%;
+      border-radius: 6px;
+    }
+    /* Progress bar colors cycling through palette */
+    .progress-fill.color-0 { background: var(--color-primary); }
+    .progress-fill.color-1 { background: var(--color-success); }
+    .progress-fill.color-2 { background: var(--color-warning); }
+    .progress-fill.color-3 { background: var(--color-danger); }
+    .progress-fill.color-4 { background: var(--chart-pink); }
+    .progress-fill.color-5 { background: var(--chart-cyan); }
+    .progress-fill.color-6 { background: var(--chart-gray); }
+    .project-percent-label {
+      font-size: 0.97em;
+      color: var(--color-text-secondary);
+      margin-left: 7px;
+      vertical-align: 2.5px;
+    }
+    .last-update-row {
+      color: var(--color-text-secondary);
+      font-size: 0.96rem;
+      margin-top: 2px;
+      margin-left: 4px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .export-btn {
+      font-size: 0.96rem;
+      padding: 3px 18px;
+      border-radius: 5px;
+      border: 1px solid var(--color-primary);
+      background: #fff;
+      color: var(--color-primary);
+      cursor: pointer;
+      margin-left: 10px;
+      transition: background 0.18s, color 0.18s;
+    }
+    .export-btn:hover {
+      background: var(--color-primary);
+      color: #fff;
+    }
+    .error-block {
+      color: var(--color-danger);
+      background: #fae1e4;
+      border: 1.2px solid var(--color-danger);
+      padding: 18px;
+      border-radius: 8px;
+      text-align: center;
+      margin: 10px 0 16px 0;
+    }
+    .loading-row {
+      width: 100%;
+      text-align: center;
+      margin: 30px 0;
+    }
+    .spinner {
+      display: inline-block;
+      width: 34px;
+      height: 34px;
+      border: 4px solid #e6e8ef;
+      border-top: 4px solid var(--color-primary);
+      border-radius: 50%;
+      animation: spin 0.9s linear infinite;
+    }
+    @keyframes spin {
+      100% { transform: rotate(360deg); }
+    }
+    .empty-state {
+      padding: 48px 0 38px 0;
+      color: var(--color-text-secondary);
+      text-align: center;
+      font-size: 1.09rem;
+    }
+    @media (max-width: 720px) {
+      .dashboard-summary-grid {
+        flex-wrap: wrap;
+      }
+      .summary-box {
+        flex: 1 1 120px;
+      }
+      .dashboard-card-header,
+      .dashboard-card-body {
+        padding: 16px 10px;
+      }
+      .container {
+        padding: 10px 4px 20px 4px;
+      }
+    }
+    @media (max-width: 510px) {
+      .dashboard-summary-grid {
+        flex-direction: column;
+        gap: 6px;
+      }
+      .summary-box {
+        min-width: 80px;
+        padding: 12px 7px;
+        font-size: 0.95em;
+      }
+      .github-config-row {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+      }
+      .dashboard-card-header, .dashboard-card-body { padding: 13px 4px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- Github config card -->
+    <div class="dashboard-card" id="github-config-card">
+      <div class="dashboard-card-header">GitHub 用户信息配置</div>
+      <div class="dashboard-card-body">
+        <form id="github-config-form" class="github-config-row" autocomplete="off">
+          <label for="github-username">用户名</label>
+          <input class="input" type="text" id="github-username" placeholder="GitHub用户名" required />
+          <label for="github-repo">仓库名</label>
+          <input class="input" type="text" id="github-repo" placeholder="仓库名" required />
+          <button type="submit" class="action-btn" id="test-conn-btn">测试连接</button>
+          <label class="switch" title="每30秒自动刷新">
+            <input type="checkbox" id="auto-refresh-checkbox" checked /> 自动刷新
+          </label>
+          <button type="button" class="refresh-btn" id="manual-refresh-btn" title="手动刷新">
+            <span style="font-size:1.1em;line-height:1;">🔄</span>
+          </button>
+        </form>
+      </div>
+    </div>
+
+    <!-- Main time stats card -->
+    <div class="dashboard-card" id="summary-card">
+      <div class="dashboard-card-header">
+        <span>📊 时间统计</span>
+        <span id="last-updated-info" class="last-update-row"></span>
+        <button class="export-btn" id="export-image-btn" title="导出为图片">导出为图片</button>
+      </div>
+      <div class="dashboard-card-body" id="summary-section">
+        <!-- Summary stats grid -->
+        <div class="dashboard-summary-grid" id="summary-stats"></div>
+        <div id="summary-loading" class="loading-row" style="display:none;">
+          <span class="spinner"></span>
+        </div>
+        <div id="summary-error" class="error-block" style="display:none;"></div>
+      </div>
+    </div>
+
+    <!-- Project breakdown card -->
+    <div class="dashboard-card">
+      <div class="dashboard-card-header">📈 项目分布</div>
+      <div class="dashboard-card-body" id="project-breakdown-section">
+        <table class="project-list-table" id="project-breakdown-table"></table>
+        <div id="project-breakdown-loading" class="loading-row" style="display:none;">
+          <span class="spinner"></span>
+        </div>
+        <div id="project-breakdown-error" class="error-block" style="display:none;"></div>
+        <div id="project-pie-chart-container" style="margin:20px auto 6px auto;max-width:400px;text-align:center;">
+          <canvas id="project-pie-chart" style="display:block;height:240px;max-width:100%;margin:0 auto;"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- Weekly breakdown card -->
+    <div class="dashboard-card">
+      <div class="dashboard-card-header">📅 本周分布</div>
+      <div class="dashboard-card-body" id="weekly-breakdown-section">
+        <canvas id="weekly-bar-chart" style="display:block;height:200px;width:100%;max-width:600px;margin:0 auto 13px auto;"></canvas>
+        <div id="weekly-table-container"></div>
+        <div id="weekly-breakdown-loading" class="loading-row" style="display:none;">
+          <span class="spinner"></span>
+        </div>
+        <div id="weekly-breakdown-error" class="error-block" style="display:none;"></div>
+      </div>
+    </div>
+
+    <div id="empty-state-block" class="empty-state" style="display:none;">No data found. Check username/repo and sync your data first.</div>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script>
+/**************************************************************************
+* 公共变量与工具函数
+***************************************************************************/
+const DEFAULT_CONFIG = {
+  username: '',
+  repo: ''
+};
+const COLOR_PALETTE = ['#0078d7','#107c10','#ffb900','#d13438', '#e087d7','#69c8f8', '#ececec'];
+const DAY_LABELS = ['日','一','二','三','四','五','六'];
+const summaryTitles = [
+  ['总投入','h'], ['项目数','个'], ['今日','h'], ['平均','h']
+];
+const API_URL_TEMPLATE = 'https://raw.githubusercontent.com/{username}/{repo}/main/time-tracker-data.json';
+let config = { ...DEFAULT_CONFIG };
+let timer = null, autoRefresh = true, lastData = null, lastFetchTime = 0;
+let weeklyBarChart = null, projectPieChart = null;
+const ONE_DAY_MS = 24 * 60 * 60 * 1000;
+/**************************************************************************/
+
+function formatTime(dur) {
+  if (!dur) return '0h';
+  if (typeof dur === 'number') dur = secondsToDuration(dur);
+  let str = '';
+  if (dur.hours) str += dur.hours + 'h';
+  if (dur.minutes) str += (str ? ' ' : '') + dur.minutes+'m';
+  return str || (dur.seconds + 's') || '0h';
+}
+function pad(num, len=2) { return (''+num).padStart(len,'0'); }
+function dateToWeekIdx(dateStr) {
+  // "2025-11-30"  -> 0(日)
+  return (new Date(dateStr)).getDay();
+}
+function secondsToDuration(seconds) {
+  seconds = Math.floor(seconds);
+  let hours = Math.floor(seconds / 3600);
+  let minutes = Math.floor((seconds % 3600) / 60);
+  let secs = seconds % 60;
+  return { hours, minutes, seconds: secs };
+}
+function getTodayDateStr() {
+  let d = new Date();
+  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+}
+function timeAgo(ts) {
+  const diffSec = Math.floor((Date.now() - ts) / 1000);
+  if (diffSec < 2) return '刚刚';
+  if (diffSec < 60) return `${diffSec}秒前`;
+  if (diffSec < 3600) return `${Math.floor(diffSec/60)}分钟前`;
+  if (diffSec < 86400) return `${Math.floor(diffSec/3600)}小时前`;
+  return `${Math.floor(diffSec/86400)}天前`;
+}
+/**************************************************************************
+* 数据请求及刷新逻辑
+***************************************************************************/
+function getApiUrl(cfg) {
+  return API_URL_TEMPLATE.replace('{username}', cfg.username).replace('{repo}', cfg.repo);
+}
+async function fetchData(cfg) {
+  // 返回：{ records: [...] }
+  const url = getApiUrl(cfg);
+  const resp = await fetch(url + '?ts=' + Date.now());
+  if (!resp.ok) throw new Error('未能加载GitHub数据: ' + resp.status);
+  return await resp.json();
+}
+function scheduleRefresh() {
+  if (timer) clearInterval(timer);
+  if (autoRefresh) {
+    timer = setInterval(() => {
+      loadDashboardData();
+    }, 30000);
+  }
+}
+/**************************************************************************
+* 事件控制 / UI交互
+***************************************************************************/
+function onConfigInputChange() {
+  config.username = document.getElementById('github-username').value.trim();
+  config.repo = document.getElementById('github-repo').value.trim();
+  // 静默刷新，数据变更
+  loadDashboardData();
+  updateShareUrl();
+}
+function onAutoRefreshToggle(ev) {
+  autoRefresh = ev.target.checked;
+  scheduleRefresh();
+}
+function onManualRefresh() {
+  loadDashboardData(true);
+}
+function onTestConnection(ev) {
+  ev.preventDefault();
+  clearErrorBlocks();
+  setLoadingStates(true);
+  fetchData(config)
+    .then(() => {
+      showSuccessMsg('连接成功！');
+    })
+    .catch(e => {
+      showErrorMsg('连接失败，请检查用户名/仓库名，或稍后再试。（'+ e.message +'）', true);
+    })
+    .finally(() => setLoadingStates(false));
+}
+function onExportImage() {
+  // 截图仪表盘主要区域，生成为图片进行下载
+  html2canvas(document.querySelector('.container'),{
+    backgroundColor: null,
+    useCORS: true,
+    scale: window.devicePixelRatio
+  }).then(canvas => {
+    let link = document.createElement('a');
+    link.download = `time-stats-${config.username || 'dashboard'}.png`;
+    link.href = canvas.toDataURL('image/png');
+    link.click();
+  });
+}
+/**************************************************************************
+* 主仪表盘渲染和处理
+***************************************************************************/
+function loadDashboardData(forceManual) {
+  // 隐藏全部错误&empty
+  clearErrorBlocks();
+  setLoadingStates(true);
+  fetchData(config)
+    .then(data => {
+      lastFetchTime = Date.now();
+      lastData = data;
+      renderAllDashboard(data);
+      updateLastUpdated();
+      setLoadingStates(false);
+    })
+    .catch(e => {
+      showErrorMsg('加载失败，请确认GitHub用户名/仓库名和数据同步。<br><span style="font-size:0.95em;color:#944;">('+e.message+')</span>', false);
+      renderEmptyState();
+      setLoadingStates(false);
+    });
+}
+function setLoadingStates(isLoading) {
+  document.getElementById('summary-loading').style.display = isLoading?'block':'none';
+  document.getElementById('project-breakdown-loading').style.display = isLoading?'block':'none';
+  document.getElementById('weekly-breakdown-loading').style.display = isLoading?'block':'none';
+}
+function clearErrorBlocks() {
+  document.getElementById('summary-error').style.display = 'none';
+  document.getElementById('project-breakdown-error').style.display = 'none';
+  document.getElementById('weekly-breakdown-error').style.display = 'none';
+  document.getElementById('empty-state-block').style.display = 'none';
+}
+function showErrorMsg(msg, isTest) {
+  document.getElementById(isTest?'summary-error':'project-breakdown-error').innerHTML = msg;
+  document.getElementById(isTest?'summary-error':'project-breakdown-error').style.display = 'block';
+}
+function showSuccessMsg(msg) {
+  document.getElementById('summary-error').innerHTML = msg;
+  document.getElementById('summary-error').style.color = 'var(--color-success)';
+  document.getElementById('summary-error').style.display = 'block';
+  setTimeout(() => {
+    document.getElementById('summary-error').style.display = 'none';
+    document.getElementById('summary-error').style.color = 'var(--color-danger)';
+  }, 2000);
+}
+function renderEmptyState() {
+  document.getElementById('empty-state-block').style.display = 'block';
+  renderSummaryStats(null);
+  renderProjectBreakdown(null);
+  renderWeeklyBreakdown(null);
+}
+function renderAllDashboard(data) {
+  renderSummaryStats(data);
+  renderProjectBreakdown(data);
+  renderWeeklyBreakdown(data);
+}
+/**************************************************************************
+* 渲染各部分仪表盘
+***************************************************************************/
+function renderSummaryStats(data) {
+  const out = document.getElementById('summary-stats');
+  if (!data || !data.records || !Array.isArray(data.records) || data.records.length === 0) {
+    out.innerHTML = '';
+    return;
+  }
+  let records = data.records;
+  let totalSeconds = records.reduce((s, r) => s + (r.durationSeconds||0), 0);
+  let projects = [...new Set(records.map(r=>r.name))];
+  let today = getTodayDateStr();
+  let todaySeconds = records.filter(r => r.date === today).reduce((s, r) => s + (r.durationSeconds||0), 0);
+  let avg = records.length > 0 ? totalSeconds / records.length : 0;
+  let statsArr = [
+    [ (totalSeconds/3600).toFixed(1), 'h' ],
+    [ ''+projects.length, '个' ],
+    [ (todaySeconds/3600).toFixed(1), 'h' ],
+    [ (avg/3600).toFixed(1), 'h' ]
+  ];
+  out.innerHTML = statsArr.map((s,idx) =>
+    `<div class="summary-box"><div class="summary-title">${summaryTitles[idx][0]}</div><div class="summary-value">${s[0]}<span style="font-size:0.81em;font-weight:400;margin-left:2px;">${s[1]}</span></div></div>`).join('');
+}
+function renderProjectBreakdown(data) {
+  const tb = document.getElementById('project-breakdown-table');
+  // Empty state
+  if (!data || !data.records || !Array.isArray(data.records) || data.records.length === 0) {
+    tb.innerHTML = '';
+    if(projectPieChart){ projectPieChart.destroy(); projectPieChart = null; }
+    document.getElementById('project-pie-chart').style.display='none';
+    return;
+  }
+  tb.innerHTML = `<tr><th>#</th><th>项目名称</th><th>时间</th><th style="min-width:90px;">进度</th></tr>`;
+  let group = {};
+  data.records.forEach(r => {
+    if (!group[r.name]) group[r.name] = 0;
+    group[r.name] += r.durationSeconds||0;
+  });
+  let total = Object.values(group).reduce((s,v)=>s+v, 0);
+  let arr = Object.entries(group).map(([name, seconds], idx) => ({
+    idx, name, seconds, percent: total?seconds/total:0
+  })).sort((a,b)=>b.seconds-a.seconds);
+  arr.forEach((item, idx) => {
+    let pct = (item.percent*100).toFixed(1);
+    let colorClass = 'color-'+(idx % COLOR_PALETTE.length);
+    tb.innerHTML += `<tr><td>${idx+1}.</td><td>${item.name}</td><td>${formatTime(item.seconds)}</td><td><div class="progress-bar"><div class="progress-fill ${colorClass}" style="width:${pct}%"></div></div><span class="project-percent-label">${pct}%</span></td></tr>`;
+  });
+  // Pie chart
+  drawProjectPieChart(arr.map(i=>i.name), arr.map(i=>i.seconds), arr.map((_,idx)=>COLOR_PALETTE[idx%COLOR_PALETTE.length]));
+}
+function drawProjectPieChart(labels, secondsArr, colors) {
+  const ctx = document.getElementById('project-pie-chart');
+  if (projectPieChart) projectPieChart.destroy();
+  if (!labels.length) { ctx.style.display='none'; return; }
+  ctx.style.display='block';
+  projectPieChart = new Chart(ctx, {
+    type: 'pie',
+    data: {
+      labels: labels,
+      datasets: [{
+        data: secondsArr,
+        backgroundColor: colors,
+        borderWidth: 1.5,
+        borderColor: '#fff',
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { position: 'right', labels: { boxWidth: 17 }},
+        title: { display: false },
+        tooltip: { callbacks: { label: function(ctx){ let v=ctx.raw; return ctx.label+ ': '+formatTime(v); } } }
+      }
+    }
+  });
+}
+function renderWeeklyBreakdown(data) {
+  const ctx = document.getElementById('weekly-bar-chart');
+  if (weeklyBarChart) weeklyBarChart.destroy();
+  const tableCt = document.getElementById('weekly-table-container');
+  if (!data || !data.records || !Array.isArray(data.records) || data.records.length === 0) {
+    ctx.style.display='none';
+    tableCt.innerHTML='';
+    return;
+  }
+  ctx.style.display='block';
+  // 按一周7天分组
+  let weekArr = Array(7).fill(0); // 0(日)-6(六)
+  data.records.forEach(r => {
+    let dow = dateToWeekIdx(r.date);
+    weekArr[dow] += r.durationSeconds||0;
+  });
+  let max = Math.max(...weekArr,1);
+  weeklyBarChart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: DAY_LABELS,
+      datasets: [{
+        label: '小时',
+        data: weekArr.map(s=> (s/3600).toFixed(2)),
+        backgroundColor: COLOR_PALETTE[0],
+      }]
+    },
+    options: {
+      responsive: true,
+      scales: {
+        y: {
+          beginAtZero: true,
+          ticks: {
+            stepSize: 1,
+            color: '#444',
+            font: { size:12 },
+            callback: (v) => v+''
+          }
+        },
+        x: {
+          ticks: { color:'#444', font:{size:13} }
+        }
+      },
+      plugins: {
+        legend: {display:false},
+        title:{ display:false },
+        tooltip: { callbacks: { label: ctx => ctx.raw+'小时' }}
+      },
+      animation: {duration:700}
+    }
+  });
+  // 明细表
+  tableCt.innerHTML = `<table style="width:100%;margin-top:10px;font-size:1em;border-collapse:collapse;"><tr><th>星期</th>${DAY_LABELS.map(s=>`<th>${s}</th>`).join('')}</tr><tr><th>时长</th>${weekArr.map(s=>`<td>${(s/3600).toFixed(2)}h</td>`).join('')}</tr></table>`;
+}
+function updateLastUpdated() {
+  const info = document.getElementById('last-updated-info');
+  if (!lastFetchTime) { info.innerText = ''; return; }
+  info.innerText = `最后更新: ${timeAgo(lastFetchTime)}`;
+}
+/**************************************************************************
+* 导出图片功能依赖 html2canvas CDN
+***************************************************************************/
+(function setupExportBtn(){
+  const s = document.createElement('script');
+  s.src = 'https://cdn.jsdelivr.net/npm/html2canvas';
+  s.onload = function(){ document.getElementById('export-image-btn').disabled = false; };
+  document.body.appendChild(s);
+})();
+/**************************************************************************
+* 初始化 (配置URL参数)
+***************************************************************************/
+function updateShareUrl() {
+  const params = new URLSearchParams();
+  if (config.username) params.set('u',config.username);
+  if (config.repo) params.set('r',config.repo);
+  const url = window.location.pathname+'?'+params.toString();
+  window.history.replaceState({}, '', url);
+}
+function parseUrlConfig() {
+  // 支持URL的 ?u=xxx&r=yyy
+  const params = new URLSearchParams(window.location.search);
+  let u = params.get('u')||'';
+  let r = params.get('r')||'';
+  if (u && r) { config = {username: u, repo: r}; }
+}
+function loadConfigToInputs() {
+  document.getElementById('github-username').value = config.username || '';
+  document.getElementById('github-repo').value = config.repo || '';
+}
+/**************************************************************************
+* 挂载事件与主入口
+***************************************************************************/
+document.getElementById('github-config-form').onsubmit = onTestConnection;
+document.getElementById('github-username').onchange = onConfigInputChange;
+document.getElementById('github-repo').onchange = onConfigInputChange;
+document.getElementById('auto-refresh-checkbox').onchange = onAutoRefreshToggle;
+document.getElementById('manual-refresh-btn').onclick = onManualRefresh;
+document.getElementById('export-image-btn').onclick = onExportImage;
+window.onresize = () => {
+  // 保证chart自适应
+  if (weeklyBarChart) weeklyBarChart.resize();
+  if (projectPieChart) projectPieChart.resize();
+};
+/**************************************************************************
+* 启动加载配置
+***************************************************************************/
+(function () {
+  parseUrlConfig();
+  loadConfigToInputs();
+  updateShareUrl();
+  loadDashboardData();
+  scheduleRefresh();
+})();
+
+/**************************************************************************/
+  </script>
+</body>
+</html>
