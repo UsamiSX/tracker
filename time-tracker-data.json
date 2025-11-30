@@ -1,16 +1,5 @@
 {
-  "records": [
-    {
-      "id": 1764514208731,
-      "project": "CODE",
-      "startTime": 1764514206216,
-      "duration": 2515,
-      "date": "2025-11-30T14:50:06.216Z",
-      "notes": ""
-    }
-  ],
-  "projects": [
-    "CODE"
-  ],
-  "lastSync": "2025-11-30T15:35:19.166Z"
+  "records": [],
+  "projects": [],
+  "lastSync": "2025-11-30T15:38:03.798Z"
 }
